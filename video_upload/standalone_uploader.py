@@ -1,4 +1,3 @@
-
 # Copyright 2018 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -54,8 +53,8 @@ import gpxpy
 import gpxpy.gpx
 import httplib2
 from oauth2client import client
-from oauth2client import file as googleapis_file
 from oauth2client import tools
+from oauth2client.file import Storage
 import pycurl
 
 _API_NAME = "streetviewpublish"
@@ -86,10 +85,8 @@ def _get_discovery_service_url():
 
 def _get_credentials():
   """Gets valid user credentials from storage.
-
   If nothing has been stored, or if the stored credentials are invalid,
   the OAuth2 flow is completed to obtain the new credentials.
-
   Returns:
       Credentials, the obtained credential.
   """
@@ -99,13 +96,17 @@ def _get_credentials():
     os.makedirs(credential_dir)
   credential_path = os.path.join(credential_dir,
                                  "streetviewpublish_credentials.json")
-  store = googleapis_file.Storage(credential_path)
+  store = Storage(credential_path)
   credentials = store.get()
   if not credentials or credentials.invalid:
     flow = client.flow_from_clientsecrets(_CLIENT_SECRETS_FILE, _SCOPES)
+    flow.redirect_uri = _REDIRECT_URI
     flow.user_agent = _APPLICATION_NAME
-    credentials = tools.run_flow(flow, store, _flags)
-    print("Storing credentials to %s", credential_path)
+    if _flags:
+      credentials = tools.run_flow(flow, store, _flags)
+    else:
+      credentials = tools.run(flow, store)
+    print "Storing credentials to " + credential_path
   return credentials
 
 
@@ -118,13 +119,11 @@ def _get_file_size(file_name):
 
 def _get_headers(credentials, file_size, url):
   """Returns a list of header parameters in HTTP header format.
-
   Args:
     credentials: The credentials object returned from the _get_credentials
       method.
     file_size: The size of the file returned from the _get_file_size method.
     url: The upload url for the photo.
-
   Returns:
     A list of header parameters in HTTP header format. For example:
     Content-Type: image
@@ -141,24 +140,47 @@ def _get_headers(credentials, file_size, url):
   return ["%s: %s" % (k, v) for (k, v) in headers.iteritems()]
 
 
-def _upload_video(video_file, gpx_file, create_time, service, credentials):
-  """Uploads a photo and returns the photo id.
-
+def _publish(video_file):
+  """Uploads a video and returns the sequence id.
   Args:
     video_file: Full path of the video to upload.
-    gpx_file: Full path of the gpx file to upload.
-    create_time: Creation time of the video, in seconds since epoch.
-    service: the Street View Publish API service.
-    credentials: The credentials object returned from the _get_credentials
-      method.
   Returns:
     The id if the upload was successful, otherwise None.
   """
-  # 1. Request upload URL
+  upload_url = _request_upload_url()
+  _upload_video(video_file, upload_url)
+  publish_response = _publish_sequence(upload_url, gpx_file, create_time)
+  return publish_response
+
+
+def _request_upload_url():
+  """Requests an Upload URL from SV servers (step 1/3).
+  Returns:
+    The Upload URL.
+  """
+  credentials = _get_credentials()
+  http = credentials.authorize(httplib2.Http())
+  service = discovery.build(
+      _API_NAME,
+      _API_VERSION,
+      developerKey=_DEVELOPER_KEY,
+      discoveryServiceUrl=_get_discovery_service_url(),
+      http=http)
   start_upload_response = service.photoSequence().startUpload(body={}).execute()
   upload_url = str(start_upload_response["uploadUrl"])
+  return upload_url
 
-  # 2. Upload video bytes
+
+def _upload_video(video_file, upload_url):
+  """Uploads a the video bytes to SV servers (step 2/3).
+  Args:
+    video_file: Full path of the video to upload.
+    upload_url: The upload URL returned by step 1.
+  Returns:
+    None.
+  """
+  credentials = _get_credentials()
+  credentials.authorize(httplib2.Http())
   file_size = _get_file_size(str(video_file))
   try:
     curl = pycurl.Curl()
@@ -170,23 +192,36 @@ def _upload_video(video_file, gpx_file, create_time, service, credentials):
     curl.setopt(pycurl.INFILESIZE, file_size)
     curl.setopt(pycurl.READFUNCTION, open(str(video_file), "rb").read)
     curl.setopt(pycurl.UPLOAD, 1)
-
     curl.perform()
     response_code = curl.getinfo(pycurl.RESPONSE_CODE)
     curl.close()
   except pycurl.error:
     print("Error uploading file %s", video_file)
-
   if response_code is not 200:
     print("Error uploading file %s", video_file)
 
-  # 3. Publish sequence
+
+def _publish_sequence(upload_url, gpx_file, create_time):
+  """Publishes the content on Street View (step 3/3).
+  Args:
+    upload_url: The upload URL returned by step 1.
+    gpx_file: Full path of the gpx file to upload.
+    create_time: Creation time of the video, in seconds since epoch.
+  Returns:
+    The id if the upload was successful, otherwise None.
+  """
+  credentials = _get_credentials()
+  http = credentials.authorize(httplib2.Http())
+  service = discovery.build(
+      _API_NAME,
+      _API_VERSION,
+      developerKey=_DEVELOPER_KEY,
+      discoveryServiceUrl=_get_discovery_service_url(),
+      http=http)
   publish_request = {"uploadReference": {"uploadUrl": upload_url}}
   publish_request["captureTimeOverride"] = {"seconds": create_time}
-
   gpx_file = open(gpx_file, 'r')
   gpx = gpxpy.parse(gpx_file)
-
   rawGpsTimelines = []
   for track in gpx.tracks:
     for segment in track.segments:
@@ -212,40 +247,35 @@ def _upload_video(video_file, gpx_file, create_time, service, credentials):
     return None
 
 
-def main():
-  if _flags.video is None or _flags.gpx is None:
-    print("You must provide a video file and a gpx file.")
-    exit(1)
-
-  create_time = 0
-  if _flags.time is not None:
-    create_time = _flags.time
-  else:
+def _parse_create_time(video_file):
     # If this is a file from Insta360 then the timestamp is in the filename
     regex = r".*_([0-9]{4})_([0-9]{2})_([0-9]{2})_([0-9]{2})_([0-9]{2})_([0-9]{2}).*"
     matches = re.match(regex,_flags.video)
     if matches is not None:
       file_timestamp = matches.group(1) + "-" + matches.group(2) + "-" + matches.group(3) + " " + matches.group(4) + ":" + matches.group(5) + ":" + matches.group(6)
       time_epoch = timegm(time.strptime(file_timestamp, '%Y-%m-%d %H:%M:%S'))
-      create_time = time_epoch
+      return time_epoch
     else:
       print("You must either pass the time argument or have the time contained in the video filename in the format YYYY_MM_DD_HH_MM_SS")
       exit(1)
 
-  credentials = _get_credentials()
-  http = credentials.authorize(httplib2.Http())
 
-  service = discovery.build(
-      _API_NAME,
-      _API_VERSION,
-      developerKey=_DEVELOPER_KEY,
-      discoveryServiceUrl=_get_discovery_service_url(),
-      http=http)
+def main():
+  if _flags.video is None or _flags.gpx is None:
+    print "You must provide a video file and a gpx file."
+    exit(1)
+  
+  create_time = 0
+  
+  if _flags.time is not None:
+    create_time = _flags.time
+  else:
+    create_time = _parse_create_time(_flags.video)
 
   if _flags.video is not None:
-    sequence_id = _upload_video(_flags.video, _flags.gpx, create_time, service, credentials)
+    sequence_id = _publish(_flags.video, _flags.gpx, create_time)
     output = "Sequence uploaded! Sequence id: " + sequence_id
-    print(output)
+    print output
 
 
 if __name__ == '__main__':

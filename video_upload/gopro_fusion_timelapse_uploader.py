@@ -1,4 +1,3 @@
-
 # Copyright 2018 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,7 +14,7 @@
 #
 # ==============================================================================
 
-# Script to upload a GoPro Fusion timelapse photos using the Street View Publish API.
+# Script to upload GoPro Fusion timelapse photos using the Street View Publish API.
 #
 # This script will convert a series of timelapse photos into a photoSequence which
 # also supports auto-connections and blurring.
@@ -279,7 +278,7 @@ def _convert_video(directory):
   split_file = first_file.split("_")
   file_pattern = directory + "/" + split_file[0] + "_" + split_file[1] + '_%06d.jpg'
   subprocess.call(["ffmpeg", "-i", file_pattern, "-codec", "copy", "-framerate", "1", "-y", output_mp4])
-  subprocess.call(["exiftool", '-make="GoPro"', '-model="GoPro Fusion (18MP Timelapse)"', "-overwrite_original", output_mp4])
+  subprocess.call(["exiftool", '-make="GoPro"', '-model="GoPro Fusion"', "-overwrite_original", output_mp4])
   return output_mp4
 
 def main():

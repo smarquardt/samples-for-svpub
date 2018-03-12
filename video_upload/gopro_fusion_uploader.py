@@ -1,4 +1,3 @@
-
 # Copyright 2018 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -292,6 +291,7 @@ def _convert_video(video_file):
   """
   output_mp4 = "%s.mp4" % video_file
   call(["ffmpeg", "-i", video_file, "-c:v", "libx264", "-preset", "slower", "-crf", "18", "-r", "5", "-threads", "8", output_mp4])
+  call(["exiftool", '-make="GoPro"', '-model="GoPro Fusion"', "-overwrite_original", output_mp4])
   return output_mp4
 
 
