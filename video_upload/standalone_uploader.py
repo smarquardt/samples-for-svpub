@@ -140,10 +140,12 @@ def _get_headers(credentials, file_size, url):
   return ["%s: %s" % (k, v) for (k, v) in headers.iteritems()]
 
 
-def _publish(video_file):
+def _publish(video_file, gpx_file, create_time):
   """Uploads a video and returns the sequence id.
   Args:
     video_file: Full path of the video to upload.
+    gpx_file: GPX file with telemetry.
+    create_time: Start time of video in seconds since epoch.
   Returns:
     The id if the upload was successful, otherwise None.
   """
@@ -280,3 +282,4 @@ def main():
 
 if __name__ == '__main__':
   main()
+
