@@ -38,9 +38,9 @@ all frames sequentially and automatically.
 
 * python standalone_uploader.py --video=VIDEO_0001.mp4 --gpx=tracks.gpx --time=1521201600 --blur=True --key=AbcdefgHijklmnopQrstuvWxyz
 
-* python gopro_fusion_timelapse_uploader.py --folder=frames --blur=True --compress=True --key=AbcdefgHijklmnopQrstuvWxyz
-
 * python gopro_fusion_uploader.py --video=VIDEO_0001.mov --front=GPFR0001.MP4 --blur=True --key=AbcdefgHijklmnopQrstuvWxyz
+
+* python gopro_fusion_timelapse_uploader.py --folder=frames --blur=True --compress=True --key=AbcdefgHijklmnopQrstuvWxyz
 
 
 ## Configuring video upload tools
