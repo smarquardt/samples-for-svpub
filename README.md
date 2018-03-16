@@ -32,6 +32,16 @@ we convert the stills into a single photoSequence so that we can also
 enable automatic blurring of faces and license plates, and connect
 all frames sequentially and automatically.
 
+## Example usage
+
+* python basic_uploader.py --video=VIDEO_0001.mp4 --blur=True --key=AbcdefgHijklmnopQrstuvWxyz
+
+* python standalone_uploader.py --video=VIDEO_0001.mp4 --gpx=tracks.gpx --time=1521201600 --blur=True --key=AbcdefgHijklmnopQrstuvWxyz
+
+* python gopro_fusion_timelapse_uploader.py --folder=frames --blur=True --compress=True --key=AbcdefgHijklmnopQrstuvWxyz
+
+* python gopro_fusion_uploader.py --video=VIDEO_0001.mov --front=GPFR0001.MP4 --blur=True --key=AbcdefgHijklmnopQrstuvWxyz
+
 
 ## Configuring video upload tools
 
@@ -44,6 +54,10 @@ all frames sequentially and automatically.
 
 1. Place the downloaded JSON file in the same directory as the video upload
 samples and rename it to streetviewpublish_config.json. 
+
+1. Get a developer key for your Cloud project by going to 
+APIs & Services > Credentials > Create Credentials > API Key. 
+You'll need to include this key whenever you run the upload scripts.
 
 1. If additional dependencies are required, it will be documented in the
 individual upload utilities.

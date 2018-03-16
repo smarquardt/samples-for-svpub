@@ -26,8 +26,14 @@
 #
 # $ python gopro_fusion_timelapse_uploader.py \
 #   --folder=<folder containing stitched photos> \
-#
-# Be sure to add your key in _DEVELOPER_KEY before running this.
+#   --blur=<True/False> \
+#   --compress=<True/False> \
+#   --key=<your developer key>
+
+# Enabling compression will reduce the size of the uploaded file by about 9x but
+# the compression itself may take a long time to run.  To decide whether to use
+# compression you must consider the speed of your computer vs the speed of your
+# internet connection.
 
 # Requirements:
 # This script requires the following libraries:
@@ -62,34 +68,34 @@ import subprocess
 import pycurl
 
 
-#Enter your developer key here before running this script
-_DEVELOPER_KEY = "YOUR-KEY-HERE"
+API_NAME = "streetviewpublish"
+API_VERSION = "v1"
+SCOPES = "https://www.googleapis.com/auth/streetviewpublish"
+APPLICATION_NAME = "Street View Publish API Python"
+LABEL = "ALPHA_TESTER"
+DISCOVERY_SERVICE_URL = "https://%s.googleapis.com/$discovery/rest?version=%s"
+CLIENT_SECRETS_FILE = "streetviewpublish_config.json"
+REDIRECT_URI = "http://localhost:8080"
 
-_API_NAME = "streetviewpublish"
-_API_VERSION = "v1"
-_SCOPES = "https://www.googleapis.com/auth/streetviewpublish"
-_APPLICATION_NAME = "Street View Publish API Python"
-_LABEL = "ALPHA_TESTER"
-_DISCOVERY_SERVICE_URL = "https://%s.googleapis.com/$discovery/rest?version=%s"
-_CLIENT_SECRETS_FILE = "streetviewpublish_config.json"
-_REDIRECT_URI = "http://localhost:8080"
-
-_parser = argparse.ArgumentParser(parents=[tools.argparser])
-_parser.add_argument("--folder", help="The folder you want to upload")
-_flags = _parser.parse_args()
+parser = argparse.ArgumentParser(parents=[tools.argparser])
+parser.add_argument("--folder", help="The folder you want to upload")
+parser.add_argument("--blur", help="True to enable auto-blurring, default False")
+parser.add_argument("--compress", help="True to enable compression, default False")
+parser.add_argument("--key", help="Your developer key")
+flags = parser.parse_args()
 
 
-def _get_discovery_service_url():
+def get_discovery_service_url():
   """Returns the discovery service url."""
-  discovery_service_url = _DISCOVERY_SERVICE_URL % (_API_NAME, _API_VERSION)
-  if _DEVELOPER_KEY is not None:
-    discovery_service_url += "&key=%s" % _DEVELOPER_KEY
-  if _LABEL is not None:
-    discovery_service_url += "&labels=%s" % _LABEL
+  discovery_service_url = DISCOVERY_SERVICE_URL % (API_NAME, API_VERSION)
+  if flags.key is not None:
+    discovery_service_url += "&key=%s" % flags.key
+  if LABEL is not None:
+    discovery_service_url += "&labels=%s" % LABEL
   return discovery_service_url
 
 
-def _get_credentials():
+def get_credentials():
   """Gets valid user credentials from storage.
 
   If nothing has been stored, or if the stored credentials are invalid,
@@ -107,31 +113,31 @@ def _get_credentials():
   store = Storage(credential_path)
   credentials = store.get()
   if not credentials or credentials.invalid:
-    flow = client.flow_from_clientsecrets(_CLIENT_SECRETS_FILE, _SCOPES)
-    flow.redirect_uri = _REDIRECT_URI
-    flow.user_agent = _APPLICATION_NAME
-    if _flags:
-      credentials = tools.run_flow(flow, store, _flags)
+    flow = client.flow_from_clientsecrets(CLIENT_SECRETS_FILE, _SCOPES)
+    flow.redirect_uri = REDIRECT_URI
+    flow.user_agent = APPLICATION_NAME
+    if flags:
+      credentials = tools.run_flow(flow, store, flags)
     else:
       credentials = tools.run(flow, store)
     print "Storing credentials to " + credential_path
   return credentials
 
 
-def _get_file_size(file_name):
+def get_file_size(file_name):
   """Returns the size of the file."""
   with open(file_name, "r") as fh:
     fh.seek(0, os.SEEK_END)
     return fh.tell()
 
 
-def _get_headers(credentials, file_size, url):
+def get_headers(credentials, file_size, url):
   """Returns a list of header parameters in HTTP header format.
 
   Args:
-    credentials: The credentials object returned from the _get_credentials
+    credentials: The credentials object returned from the get_credentials
       method.
-    file_size: The size of the file returned from the _get_file_size method.
+    file_size: The size of the file returned from the get_file_size method.
     url: The upload url for the photo.
 
   Returns:
@@ -149,26 +155,26 @@ def _get_headers(credentials, file_size, url):
   }
   return ["%s: %s" % (k, v) for (k, v) in headers.iteritems()]
 
-def _request_upload_url():
+def request_upload_url():
   """Requests an Upload URL from SV servers (step 1/3).
 
   Returns:
     The Upload URL.
   """
-  credentials = _get_credentials()
+  credentials = get_credentials()
   http = credentials.authorize(httplib2.Http())
   service = discovery.build(
-      _API_NAME,
-      _API_VERSION,
-      developerKey=_DEVELOPER_KEY,
-      discoveryServiceUrl=_get_discovery_service_url(),
+      API_NAME,
+      API_VERSION,
+      developerKey=flags.key,
+      discoveryServiceUrl=get_discovery_service_url(),
       http=http)
   start_upload_response = service.photoSequence().startUpload(body={}).execute()
   upload_url = str(start_upload_response["uploadUrl"])
   return upload_url
 
 
-def _upload_video(video_file, upload_url):
+def upload_video(video_file, upload_url):
   """Uploads a the video bytes to SV servers (step 2/3).
 
   Args:
@@ -177,16 +183,16 @@ def _upload_video(video_file, upload_url):
   Returns:
     None.
   """
-  credentials = _get_credentials()
+  credentials = get_credentials()
   credentials.authorize(httplib2.Http())
-  file_size = _get_file_size(str(video_file))
+  file_size = get_file_size(str(video_file))
   try:
     curl = pycurl.Curl()
     curl.setopt(pycurl.URL, upload_url)
     curl.setopt(pycurl.VERBOSE, 1)
     curl.setopt(pycurl.CUSTOMREQUEST, "POST")
     curl.setopt(pycurl.HTTPHEADER,
-                _get_headers(credentials, file_size, upload_url))
+                get_headers(credentials, file_size, upload_url))
     curl.setopt(pycurl.INFILESIZE, file_size)
     curl.setopt(pycurl.READFUNCTION, open(str(video_file), "rb").read)
     curl.setopt(pycurl.UPLOAD, 1)
@@ -198,28 +204,29 @@ def _upload_video(video_file, upload_url):
     print("Error uploading file %s", video_file)
 
 
-def _publish_video(upload_url, geodata, create_time):
+def publish_video(upload_url, geodata, create_time):
   """Publishes the content on Street View (step 3/3).
 
   Args:
     upload_url: The upload URL returned by step 1.
-    geodata: the rawGpsTimelines from _extract_geodata
+    geodata: the rawGpsTimelines from extract_geodata
     create_time: the GPS timestamp of the first photo
   Returns:
     The id if the upload was successful, otherwise None.
   """
-  credentials = _get_credentials()
+  credentials = get_credentials()
   http = credentials.authorize(httplib2.Http())
   service = discovery.build(
-      _API_NAME,
-      _API_VERSION,
-      developerKey=_DEVELOPER_KEY,
-      discoveryServiceUrl=_get_discovery_service_url(),
+      API_NAME,
+      API_VERSION,
+      developerKey=flags.key,
+      discoveryServiceUrl=get_discovery_service_url(),
       http=http)
   publish_request = {"uploadReference": {"uploadUrl": upload_url}}
   publish_request["captureTimeOverride"] = {"seconds": create_time}
   publish_request["gpsSource"] = "PHOTO_SEQUENCE"
-  publish_request["blurringOptions"] = {"blurFaces":"true","blurLicensePlates":"true"}
+  if flags.blur:
+    publish_request["blurringOptions"] = {"blurFaces":"true","blurLicensePlates":"true"}
   publish_request.update({"rawGpsTimeline": geodata})
   try:
     publish_response = service.photoSequence().create(body=publish_request, inputType="VIDEO").execute()
@@ -230,7 +237,7 @@ def _publish_video(upload_url, geodata, create_time):
     return None
 
 
-def _extract_geodata(directory):
+def extract_geodata(directory):
   rawGpsTimelines = []
   timestamp = 0
   createTime = 0
@@ -272,35 +279,42 @@ def _extract_geodata(directory):
           rawGpsTimelines.append(rawGpsTimeline)
   return (rawGpsTimelines, createTime)
 
-def _convert_video(directory):
+def convert_video(directory):
   output_mp4 = "gopro_temp_video.mp4"
   first_file = os.listdir(directory)[1]
   split_file = first_file.split("_")
   file_pattern = directory + "/" + split_file[0] + "_" + split_file[1] + '_%06d.jpg'
-  subprocess.call(["ffmpeg", "-i", file_pattern, "-codec", "copy", "-framerate", "1", "-y", output_mp4])
+  if flags.compress:
+    subprocess.call(["ffmpeg", "-i", file_pattern, "-c:v", "libx264", "-preset", "slower", "-crf", "18", "-framerate", "1", "-y", output_mp4])
+  else:
+    subprocess.call(["ffmpeg", "-i", file_pattern, "-codec", "copy", "-framerate", "1", "-y", output_mp4])
   subprocess.call(["exiftool", '-make="GoPro"', '-model="GoPro Fusion"', "-overwrite_original", output_mp4])
   return output_mp4
 
 def main():
-  if _flags.folder is None:
-    print("You must specify a folder")
+  if flags.key is None:
+    print "You must include your developer key."
     exit(1)
 
-  if _flags.folder is not None:
+  if flags.folder is None:
+    print "You must specify a folder."
+    exit(1)
+
+  if flags.folder is not None:
     print "Extracting GPS data from photos"
-    geodata,create_time = _extract_geodata(_flags.folder)
+    geodata,create_time = extract_geodata(flags.folder)
     print "GPS extracted"
     print "Packaging photos into sequence"
-    video_file = _convert_video(_flags.folder)
+    video_file = convert_video(flags.folder)
     print "Packaging complete"
     print "Preparing upload"
-    upload_url = _request_upload_url()
+    upload_url = request_upload_url()
     print "Ready to upload"
     print "Uploading to Street View"
-    _upload_video(video_file, upload_url)
+    upload_video(video_file, upload_url)
     print "Upload complete"
     print "Publishing..."
-    sequence_id = _publish_video(upload_url, geodata, create_time)
+    sequence_id = publish_video(upload_url, geodata, create_time)
     print "Cleaning up temporary files..."
     subprocess.call(["rm", video_file])
     output = "Sequence published! Sequence id: " + sequence_id
@@ -309,3 +323,4 @@ def main():
 
 if __name__ == '__main__':
   main()
+

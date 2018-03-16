@@ -18,6 +18,15 @@
 #
 # This script can be used when you have a standalone GPX track and a
 # video, instead of a single video file with embedded geo-metadata.
+#
+# This script requires an active Google Cloud Platform project with both
+# OAuth credentials and a developer key. See the help center for assistance
+# with the following topics.
+# - Creating projects: https://cloud.google.com/resource-manager/docs/creating-managing-projects
+# - Enabling APIs: https://support.google.com/cloud/answer/6158841
+# - Configuring developer key: https://support.google.com/googleapi/answer/6158862
+# - Configuring OAuth: https://support.google.com/googleapi/answer/6158849
+# 
 
 # Usage:
 #
@@ -25,8 +34,8 @@
 #   --video=<video file> \
 #   --gpx=<gpx file> \
 #   --time=<video starting time in seconds since epoch>
-#
-# Be sure to insert your key in _DEVELOPER_KEY before running this.
+#   --blur=<True/False> \
+#   --key=<your developer key>
 
 # Requirements:
 # This script requires the following libraries:
@@ -57,33 +66,33 @@ from oauth2client import tools
 from oauth2client.file import Storage
 import pycurl
 
-_API_NAME = "streetviewpublish"
-_API_VERSION = "v1"
-_SCOPES = "https://www.googleapis.com/auth/streetviewpublish"
-_APPLICATION_NAME = "Street View Publish API Python"
-_DEVELOPER_KEY = "YOUR-KEY-HERE"
-_LABEL = "ALPHA_TESTER"
-_DISCOVERY_SERVICE_URL = "https://%s.googleapis.com/$discovery/rest?version=%s"
-_CLIENT_SECRETS_FILE = "streetviewpublish_config.json"
+API_NAME = "streetviewpublish"
+API_VERSION = "v1"
+SCOPES = "https://www.googleapis.com/auth/streetviewpublish"
+APPLICATION_NAME = "Street View Publish API Python"
+LABEL = "ALPHA_TESTER"
+DISCOVERY_SERVICE_URL = "https://%s.googleapis.com/$discovery/rest?version=%s"
+CLIENT_SECRETS_FILE = "streetviewpublish_config.json"
 
-_parser = argparse.ArgumentParser(parents=[tools.argparser])
-_parser.add_argument("--video", help="Full path of the video to upload")
-_parser.add_argument("--gpx", help="Full path of the gpx file to upload")
-_parser.add_argument("--time", help="Video start time in seconds since epoch")
-_flags = _parser.parse_args()
+parser = argparse.ArgumentParser(parents=[tools.argparser])
+parser.add_argument("--video", help="Full path of the video to upload")
+parser.add_argument("--gpx", help="Full path of the gpx file to upload")
+parser.add_argument("--blur", help="True to enable auto-blurring, default False")
+parser.add_argument("--time", help="Video start time in seconds since epoch")
+flags = parser.parse_args()
 
 
-def _get_discovery_service_url():
+def get_discovery_service_url():
   """Returns the discovery service url."""
-  discovery_service_url = _DISCOVERY_SERVICE_URL % (_API_NAME, _API_VERSION)
-  if _DEVELOPER_KEY is not None:
-    discovery_service_url += "&key=%s" % _DEVELOPER_KEY
-  if _LABEL is not None:
-    discovery_service_url += "&labels=%s" % _LABEL
+  discovery_service_url = DISCOVERY_SERVICE_URL % (API_NAME, API_VERSION)
+  if flags.key is not None:
+    discovery_service_url += "&key=%s" % flags.key
+  if LABEL is not None:
+    discovery_service_url += "&labels=%s" % LABEL
   return discovery_service_url
 
 
-def _get_credentials():
+def get_credentials():
   """Gets valid user credentials from storage.
   If nothing has been stored, or if the stored credentials are invalid,
   the OAuth2 flow is completed to obtain the new credentials.
@@ -99,30 +108,30 @@ def _get_credentials():
   store = Storage(credential_path)
   credentials = store.get()
   if not credentials or credentials.invalid:
-    flow = client.flow_from_clientsecrets(_CLIENT_SECRETS_FILE, _SCOPES)
-    flow.redirect_uri = _REDIRECT_URI
-    flow.user_agent = _APPLICATION_NAME
-    if _flags:
-      credentials = tools.run_flow(flow, store, _flags)
+    flow = client.flow_from_clientsecrets(CLIENT_SECRETS_FILE, SCOPES)
+    flow.redirect_uri = REDIRECT_URI
+    flow.user_agent = APPLICATION_NAME
+    if flags:
+      credentials = tools.run_flow(flow, store, flags)
     else:
       credentials = tools.run(flow, store)
     print "Storing credentials to " + credential_path
   return credentials
 
 
-def _get_file_size(file_name):
+def get_file_size(file_name):
   """Returns the size of the file."""
   with open(file_name, "r") as fh:
     fh.seek(0, os.SEEK_END)
     return fh.tell()
 
 
-def _get_headers(credentials, file_size, url):
+def get_headers(credentials, file_size, url):
   """Returns a list of header parameters in HTTP header format.
   Args:
-    credentials: The credentials object returned from the _get_credentials
+    credentials: The credentials object returned from the get_credentials
       method.
-    file_size: The size of the file returned from the _get_file_size method.
+    file_size: The size of the file returned from the get_file_size method.
     url: The upload url for the photo.
   Returns:
     A list of header parameters in HTTP header format. For example:
@@ -140,7 +149,7 @@ def _get_headers(credentials, file_size, url):
   return ["%s: %s" % (k, v) for (k, v) in headers.iteritems()]
 
 
-def _publish(video_file, gpx_file, create_time):
+def publish(video_file, gpx_file, create_time):
   """Uploads a video and returns the sequence id.
   Args:
     video_file: Full path of the video to upload.
@@ -149,31 +158,31 @@ def _publish(video_file, gpx_file, create_time):
   Returns:
     The id if the upload was successful, otherwise None.
   """
-  upload_url = _request_upload_url()
-  _upload_video(video_file, upload_url)
-  publish_response = _publish_sequence(upload_url, gpx_file, create_time)
+  upload_url = request_upload_url()
+  upload_video(video_file, upload_url)
+  publish_response = publish_sequence(upload_url, gpx_file, create_time)
   return publish_response
 
 
-def _request_upload_url():
+def request_upload_url():
   """Requests an Upload URL from SV servers (step 1/3).
   Returns:
     The Upload URL.
   """
-  credentials = _get_credentials()
+  credentials = get_credentials()
   http = credentials.authorize(httplib2.Http())
   service = discovery.build(
-      _API_NAME,
-      _API_VERSION,
-      developerKey=_DEVELOPER_KEY,
-      discoveryServiceUrl=_get_discovery_service_url(),
+      API_NAME,
+      API_VERSION,
+      developerKey=flags.key,
+      discoveryServiceUrl=get_discovery_service_url(),
       http=http)
   start_upload_response = service.photoSequence().startUpload(body={}).execute()
   upload_url = str(start_upload_response["uploadUrl"])
   return upload_url
 
 
-def _upload_video(video_file, upload_url):
+def upload_video(video_file, upload_url):
   """Uploads a the video bytes to SV servers (step 2/3).
   Args:
     video_file: Full path of the video to upload.
@@ -181,7 +190,7 @@ def _upload_video(video_file, upload_url):
   Returns:
     None.
   """
-  credentials = _get_credentials()
+  credentials = get_credentials()
   credentials.authorize(httplib2.Http())
   file_size = _get_file_size(str(video_file))
   try:
@@ -190,7 +199,7 @@ def _upload_video(video_file, upload_url):
     curl.setopt(pycurl.VERBOSE, 1)
     curl.setopt(pycurl.CUSTOMREQUEST, "POST")
     curl.setopt(pycurl.HTTPHEADER,
-                _get_headers(credentials, file_size, upload_url))
+                get_headers(credentials, file_size, upload_url))
     curl.setopt(pycurl.INFILESIZE, file_size)
     curl.setopt(pycurl.READFUNCTION, open(str(video_file), "rb").read)
     curl.setopt(pycurl.UPLOAD, 1)
@@ -203,7 +212,7 @@ def _upload_video(video_file, upload_url):
     print("Error uploading file %s", video_file)
 
 
-def _publish_sequence(upload_url, gpx_file, create_time):
+def publish_sequence(upload_url, gpx_file, create_time):
   """Publishes the content on Street View (step 3/3).
   Args:
     upload_url: The upload URL returned by step 1.
@@ -212,15 +221,17 @@ def _publish_sequence(upload_url, gpx_file, create_time):
   Returns:
     The id if the upload was successful, otherwise None.
   """
-  credentials = _get_credentials()
+  credentials = get_credentials()
   http = credentials.authorize(httplib2.Http())
   service = discovery.build(
-      _API_NAME,
-      _API_VERSION,
-      developerKey=_DEVELOPER_KEY,
-      discoveryServiceUrl=_get_discovery_service_url(),
+      API_NAME,
+      API_VERSION,
+      developerKey=flags.key,
+      discoveryServiceUrl=get_discovery_service_url(),
       http=http)
   publish_request = {"uploadReference": {"uploadUrl": upload_url}}
+  if flags.blur:
+    publish_request["blurringOptions"] = {"blurFaces":"true","blurLicensePlates":"true"}
   publish_request["captureTimeOverride"] = {"seconds": create_time}
   gpx_file = open(gpx_file, 'r')
   gpx = gpxpy.parse(gpx_file)
@@ -249,7 +260,7 @@ def _publish_sequence(upload_url, gpx_file, create_time):
     return None
 
 
-def _parse_create_time(video_file):
+def parse_create_time(video_file):
     # If this is a file from Insta360 then the timestamp is in the filename
     regex = r".*_([0-9]{4})_([0-9]{2})_([0-9]{2})_([0-9]{2})_([0-9]{2})_([0-9]{2}).*"
     matches = re.match(regex,_flags.video)
@@ -263,19 +274,23 @@ def _parse_create_time(video_file):
 
 
 def main():
-  if _flags.video is None or _flags.gpx is None:
+  if flags.key is None:
+    print "You must include your developer key."
+    exit(1)
+
+  if flags.video is None or flags.gpx is None:
     print "You must provide a video file and a gpx file."
     exit(1)
   
   create_time = 0
   
-  if _flags.time is not None:
-    create_time = _flags.time
+  if flags.time is not None:
+    create_time = flags.time
   else:
-    create_time = _parse_create_time(_flags.video)
+    create_time = parse_create_time(_flags.video)
 
-  if _flags.video is not None:
-    sequence_id = _publish(_flags.video, _flags.gpx, create_time)
+  if flags.video is not None:
+    sequence_id = publish(flags.video, flags.gpx, create_time)
     output = "Sequence uploaded! Sequence id: " + sequence_id
     print output
 
