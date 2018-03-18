@@ -241,7 +241,7 @@ def extract_geodata(directory):
   rawGpsTimelines = []
   timestamp = 0
   createTime = 0
-  for filename in os.listdir(directory):
+  for filename in sorted(os.listdir(directory)):
       if filename.endswith(".jpg"):
           rawGpsTimeline = {}
           current_file = os.path.join(directory, filename)
