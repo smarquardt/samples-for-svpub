@@ -18,15 +18,6 @@
 #
 # This script can be used when you have a standalone GPX track and a
 # video, instead of a single video file with embedded geo-metadata.
-#
-# This script requires an active Google Cloud Platform project with both
-# OAuth credentials and a developer key. See the help center for assistance
-# with the following topics.
-# - Creating projects: https://cloud.google.com/resource-manager/docs/creating-managing-projects
-# - Enabling APIs: https://support.google.com/cloud/answer/6158841
-# - Configuring developer key: https://support.google.com/googleapi/answer/6158862
-# - Configuring OAuth: https://support.google.com/googleapi/answer/6158849
-# 
 
 # Usage:
 #
@@ -34,7 +25,7 @@
 #   --video=<video file> \
 #   --gpx=<gpx file> \
 #   --time=<video starting time in seconds since epoch>
-#   --blur=<True/False> \
+#   --blur (optional) \
 #   --key=<your developer key>
 
 # Requirements:
@@ -77,8 +68,9 @@ CLIENT_SECRETS_FILE = "streetviewpublish_config.json"
 parser = argparse.ArgumentParser(parents=[tools.argparser])
 parser.add_argument("--video", help="Full path of the video to upload")
 parser.add_argument("--gpx", help="Full path of the gpx file to upload")
-parser.add_argument("--blur", help="True to enable auto-blurring, default False")
 parser.add_argument("--time", help="Video start time in seconds since epoch")
+parser.add_argument("--blur", default=False, action='store_true', help="Enable auto-blurring")
+parser.add_argument("--key", help="Your developer key")
 flags = parser.parse_args()
 
 
@@ -192,7 +184,7 @@ def upload_video(video_file, upload_url):
   """
   credentials = get_credentials()
   credentials.authorize(httplib2.Http())
-  file_size = _get_file_size(str(video_file))
+  file_size = get_file_size(str(video_file))
   try:
     curl = pycurl.Curl()
     curl.setopt(pycurl.URL, upload_url)
@@ -297,4 +289,5 @@ def main():
 
 if __name__ == '__main__':
   main()
+
 

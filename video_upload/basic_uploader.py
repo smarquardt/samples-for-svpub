@@ -23,7 +23,7 @@
 #
 # $ python basic_uploader.py \
 #    --video=<video file> \
-#    --blur=<True/False> \
+#    --blur (optional) \
 #    --key=<developer key>
 
 # Requirements:
@@ -61,7 +61,7 @@ REDIRECT_URI = "http://localhost:8080"
 
 parser = argparse.ArgumentParser(parents=[tools.argparser])
 parser.add_argument("--video", help="Full path of the video to upload")
-parser.add_argument("--blur", help="True to enable auto-blurring, default False")
+parser.add_argument("--blur", default=False, action='store_true', help="Enable auto-blurring")
 parser.add_argument("--key", help="Your developer key")
 flags = parser.parse_args()
 

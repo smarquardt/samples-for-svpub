@@ -21,7 +21,7 @@
 # $ python gopro_fusion_uploader.py \
 #  --video=<stitched video file> \
 #  --front=<front cam unstitched video file> \
-#  --blur=<True/False> \
+#  --blur (optional) \
 #  --key=<your developer key>
 
 # Requirements:
@@ -71,7 +71,7 @@ CLIENT_SECRETS_FILE = "streetviewpublish_config.json"
 parser = argparse.ArgumentParser(parents=[tools.argparser])
 parser.add_argument("--video", help="Full path of the video to upload")
 parser.add_argument("--front", help="Full path to front-facing unstitched video file")
-parser.add_argument("--blur", help="True to enable auto-blurring, default False")
+parser.add_argument("--blur", default=False, action='store_true', help="Enable auto-blurring")
 parser.add_argument("--key", help="Your developer key")
 flags = parser.parse_args()
 
@@ -313,6 +313,12 @@ def publish(video_file, gpx_file):
 
 
 def main():
+  print "Configuration:"
+  print "Stitched Video: %s" % flags.video
+  print "Unstitched Front Video: %s" % flags.front
+  print "Auto-blur: %s" % flags.blur
+  print "..."
+  
   if flags.key is None:
     print "You must include your developer key."
     exit(1)

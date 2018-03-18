@@ -26,8 +26,8 @@
 #
 # $ python gopro_fusion_timelapse_uploader.py \
 #   --folder=<folder containing stitched photos> \
-#   --blur=<True/False> \
-#   --compress=<True/False> \
+#   --blur (optional) \
+#   --compress (optional) \
 #   --key=<your developer key>
 
 # Enabling compression will reduce the size of the uploaded file by about 9x but
@@ -79,8 +79,8 @@ REDIRECT_URI = "http://localhost:8080"
 
 parser = argparse.ArgumentParser(parents=[tools.argparser])
 parser.add_argument("--folder", help="The folder you want to upload")
-parser.add_argument("--blur", help="True to enable auto-blurring, default False")
-parser.add_argument("--compress", help="True to enable compression, default False")
+parser.add_argument("--blur", default=False, action='store_true', help="Enable auto-blurring")
+parser.add_argument("--compress", default=False, action='store_true', help="Enable compression")
 parser.add_argument("--key", help="Your developer key")
 flags = parser.parse_args()
 
@@ -201,7 +201,7 @@ def upload_video(video_file, upload_url):
     response_code = curl.getinfo(pycurl.RESPONSE_CODE)
     curl.close()
   except pycurl.error:
-    print("Error uploading file %s", video_file)
+    print("Error uploading file %s" % video_file)
 
 
 def publish_video(upload_url, geodata, create_time):
@@ -245,6 +245,7 @@ def extract_geodata(directory):
       if filename.endswith(".jpg"):
           rawGpsTimeline = {}
           current_file = os.path.join(directory, filename)
+          print "Extracting EXIF from %s" % current_file
           if timestamp == 0:
               t = subprocess.check_output(["exiftool", "-gpstimestamp", current_file])
               t = t.split(":")
@@ -285,13 +286,19 @@ def convert_video(directory):
   split_file = first_file.split("_")
   file_pattern = directory + "/" + split_file[0] + "_" + split_file[1] + '_%06d.jpg'
   if flags.compress:
-    subprocess.call(["ffmpeg", "-i", file_pattern, "-c:v", "libx264", "-preset", "slower", "-crf", "18", "-r", "1", "-y", output_mp4])
+    subprocess.call(["ffmpeg", "-r", "1", "-i", file_pattern, "-c:v", "libx264", "-preset", "slower", "-crf", "18", "-r", "1", "-y", output_mp4])
   else:
-    subprocess.call(["ffmpeg", "-i", file_pattern, "-codec", "copy", "-r", "1", "-y", output_mp4])
+    subprocess.call(["ffmpeg", "-r", "1", "-i", file_pattern, "-codec", "copy", "-r", "1", "-y", output_mp4])
   subprocess.call(["exiftool", '-make="GoPro"', '-model="GoPro Fusion"', "-overwrite_original", output_mp4])
   return output_mp4
 
 def main():
+  print "Configuration:"
+  print "Folder: %s" % flags.folder
+  print "Auto-blur: %s" % flags.blur
+  print "Compression: %s" % flags.compress
+  print "..."
+  
   if flags.key is None:
     print "You must include your developer key."
     exit(1)
@@ -317,7 +324,7 @@ def main():
     sequence_id = publish_video(upload_url, geodata, create_time)
     print "Cleaning up temporary files..."
     subprocess.call(["rm", video_file])
-    output = "Sequence published! Sequence id: " + sequence_id
+    output = "Sequence published! Sequence id: %s" % sequence_id
     print output
 
 
