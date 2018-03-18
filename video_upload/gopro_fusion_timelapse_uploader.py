@@ -285,9 +285,9 @@ def convert_video(directory):
   split_file = first_file.split("_")
   file_pattern = directory + "/" + split_file[0] + "_" + split_file[1] + '_%06d.jpg'
   if flags.compress:
-    subprocess.call(["ffmpeg", "-i", file_pattern, "-c:v", "libx264", "-preset", "slower", "-crf", "18", "-framerate", "1", "-y", output_mp4])
+    subprocess.call(["ffmpeg", "-i", file_pattern, "-c:v", "libx264", "-preset", "slower", "-crf", "18", "-r", "1", "-y", output_mp4])
   else:
-    subprocess.call(["ffmpeg", "-i", file_pattern, "-codec", "copy", "-framerate", "1", "-y", output_mp4])
+    subprocess.call(["ffmpeg", "-i", file_pattern, "-codec", "copy", "-r", "1", "-y", output_mp4])
   subprocess.call(["exiftool", '-make="GoPro"', '-model="GoPro Fusion"', "-overwrite_original", output_mp4])
   return output_mp4
 
