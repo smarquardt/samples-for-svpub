@@ -30,10 +30,19 @@
 #   --compress (optional) \
 #   --key=<your developer key>
 
-# Enabling compression will reduce the size of the uploaded file by about 9x but
+# Enabling compression will reduce the size of the uploaded file by 5-10x but
 # the compression itself may take a long time to run.  To decide whether to use
 # compression you must consider the speed of your computer vs the speed of your
-# internet connection.
+# internet connection.  Compression time can easily be 10x video length or more.
+#
+# For faster compression you can pass "compressfast" instead of "compress" but
+# this will result in noticable quality loss.
+#
+# On slower networks it may be useful to pass "compressmore" instead of "compress"
+# which will give a 4x reduction in file size but result in some quality loss.
+#
+# Only one compression flag can be used at a time.  Additional compression flags
+# will be ignored.
 
 # Requirements:
 # This script requires the following libraries:
@@ -55,6 +64,7 @@ import time
 import json
 import os
 import re
+import sys
 import urlparse
 import gpxpy
 import gpxpy.gpx
@@ -81,6 +91,8 @@ parser = argparse.ArgumentParser(parents=[tools.argparser])
 parser.add_argument("--folder", help="The folder you want to upload")
 parser.add_argument("--blur", default=False, action='store_true', help="Enable auto-blurring")
 parser.add_argument("--compress", default=False, action='store_true', help="Enable compression")
+parser.add_argument("--compressmore", default=False, action='store_true', help="Enable higher level of compression")
+parser.add_argument("--compressfast", default=False, action='store_true', help="Enable faster compression")
 parser.add_argument("--key", help="Your developer key")
 flags = parser.parse_args()
 
@@ -129,6 +141,27 @@ def get_file_size(file_name):
   with open(file_name, "r") as fh:
     fh.seek(0, os.SEEK_END)
     return fh.tell()
+    
+def xfer_progress(total_to_download, total_downloaded, total_to_upload, total_uploaded):
+    """Outputs transfer progress for PyCurl.
+
+    Args:
+      total_to_download: Total bytes to download
+      total_downloaded: Total bytes downloaded
+      total_to_upload: Total bytes to upload
+      total_uploaded: Total bytes uploaded
+
+    Returns: None
+    """
+    if total_to_upload:
+      if total_uploaded > 0:
+        percent_completed = round(float(total_uploaded)/float(total_to_upload), ndigits=2)*100
+      else:
+        percent_completed = 0
+      upload_mb = round(total_uploaded/1000000, ndigits=2)
+      total_mb = round(total_to_upload/1000000, ndigits=2)
+      sys.stdout.write("Uploaded %s MB of %s MB (%s%%)\r" %(upload_mb, total_mb, percent_completed)),
+      sys.stdout.flush()
 
 
 def get_headers(credentials, file_size, url):
@@ -195,6 +228,8 @@ def upload_video(video_file, upload_url):
                 get_headers(credentials, file_size, upload_url))
     curl.setopt(pycurl.INFILESIZE, file_size)
     curl.setopt(pycurl.READFUNCTION, open(str(video_file), "rb").read)
+    curl.setopt(pycurl.NOPROGRESS, False)
+    curl.setopt(pycurl.XFERINFOFUNCTION, xfer_progress)
     curl.setopt(pycurl.UPLOAD, 1)
 
     curl.perform()
@@ -224,7 +259,6 @@ def publish_video(upload_url, geodata, create_time):
       http=http)
   publish_request = {"uploadReference": {"uploadUrl": upload_url}}
   publish_request["captureTimeOverride"] = {"seconds": create_time}
-  publish_request["gpsSource"] = "PHOTO_SEQUENCE"
   if flags.blur:
     publish_request["blurringOptions"] = {"blurFaces":"true","blurLicensePlates":"true"}
   publish_request.update({"rawGpsTimeline": geodata})
@@ -258,6 +292,9 @@ def extract_geodata(directory):
               timestamp = int(timegm(time.strptime(timestring, p)))
               createTime = timestamp
           else:
+              # For simplicity, we just increment each photo by one second so we don't
+              # actually need to determine the original framerate.  As long as we also
+              # encode the video at 1fps, this is completely fine.
               timestamp = timestamp + 1
           lon = subprocess.check_output(["exiftool", "-gpslongitude", "-n", current_file])
           lon = lon.split(":")
@@ -285,10 +322,14 @@ def convert_video(directory):
   first_file = os.listdir(directory)[1]
   split_file = first_file.split("_")
   file_pattern = directory + "/" + split_file[0] + "_" + split_file[1] + '_%06d.jpg'
-  if flags.compress:
+  if flags.compressmore:
+    subprocess.call(["ffmpeg", "-r", "1", "-i", file_pattern, "-c:v", "libx264", "-preset", "slower", "-crf", "30", "-r", "1", "-y", output_mp4])
+  elif flags.compressfast:
+    subprocess.call(["ffmpeg", "-r", "1", "-i", file_pattern, "-c:v", "libx264", "-preset", "fast", "-crf", "18", "-r", "1", "-y", output_mp4])
+  elif flags.compress:
     subprocess.call(["ffmpeg", "-r", "1", "-i", file_pattern, "-c:v", "libx264", "-preset", "slower", "-crf", "18", "-r", "1", "-y", output_mp4])
   else:
-    subprocess.call(["ffmpeg", "-r", "1", "-i", file_pattern, "-codec", "copy", "-r", "1", "-y", output_mp4])
+    subprocess.call(["ffmpeg", "-framerate", "1", "-i", file_pattern, "-codec", "copy", "-y", output_mp4])
   subprocess.call(["exiftool", '-make="GoPro"', '-model="GoPro Fusion"', "-overwrite_original", output_mp4])
   return output_mp4
 
@@ -297,6 +338,8 @@ def main():
   print "Folder: %s" % flags.folder
   print "Auto-blur: %s" % flags.blur
   print "Compression: %s" % flags.compress
+  print "Higher compression: %s" % flags.compressmore
+  print "Faster compression: %s" % flags.compressfast
   print "..."
   
   if flags.key is None:
@@ -316,10 +359,11 @@ def main():
     print "Packaging complete"
     print "Preparing upload"
     upload_url = request_upload_url()
+    print "Upload target: %s" % upload_url
     print "Ready to upload"
     print "Uploading to Street View"
     upload_video(video_file, upload_url)
-    print "Upload complete"
+    print "\nUpload complete"
     print "Publishing..."
     sequence_id = publish_video(upload_url, geodata, create_time)
     print "Cleaning up temporary files..."
