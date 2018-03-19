@@ -1,7 +1,9 @@
 # Samples for Street View Publish API
 
 This repository contains experimental tools and samples for uploading videos
-to the Street View Publish API as geo-referenced "photoSequences".
+to the Street View Publish API as geo-referenced "photoSequences". These
+tools and samples are not an official Google project and come with no
+guarantee of ongoing support.
 
 Public documentation for the Street View Publish API is available here:
 https://developers.google.com/streetview/publish/
