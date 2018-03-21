@@ -93,6 +93,7 @@ parser.add_argument("--blur", default=False, action='store_true', help="Enable a
 parser.add_argument("--compress", default=False, action='store_true', help="Enable compression")
 parser.add_argument("--compressmore", default=False, action='store_true', help="Enable higher level of compression")
 parser.add_argument("--compressfast", default=False, action='store_true', help="Enable faster compression")
+parser.add_argument("--exif", default=False, action='store_true', help="Write make/model to metadata")
 parser.add_argument("--key", help="Your developer key")
 flags = parser.parse_args()
 
@@ -330,7 +331,8 @@ def convert_video(directory):
     subprocess.call(["ffmpeg", "-r", "1", "-i", file_pattern, "-c:v", "libx264", "-preset", "slower", "-crf", "18", "-r", "1", "-y", output_mp4])
   else:
     subprocess.call(["ffmpeg", "-framerate", "1", "-i", file_pattern, "-codec", "copy", "-y", output_mp4])
-  subprocess.call(["exiftool", '-make="GoPro"', '-model="GoPro Fusion"', "-overwrite_original", output_mp4])
+  if flags.exif:
+    subprocess.call(["exiftool", '-make="GoPro"', '-model="GoPro Fusion"', "-overwrite_original", output_mp4])
   return output_mp4
 
 def main():
@@ -374,4 +376,3 @@ def main():
 
 if __name__ == '__main__':
   main()
-

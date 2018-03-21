@@ -72,6 +72,7 @@ parser = argparse.ArgumentParser(parents=[tools.argparser])
 parser.add_argument("--video", help="Full path of the video to upload")
 parser.add_argument("--front", help="Full path to front-facing unstitched video file")
 parser.add_argument("--blur", default=False, action='store_true', help="Enable auto-blurring")
+parser.add_argument("--exif", default=False, action='store_true', help="Write make/model to metadata")
 parser.add_argument("--key", help="Your developer key")
 flags = parser.parse_args()
 
@@ -223,7 +224,7 @@ def publish_sequence(upload_url, gpx_file):
   for track in gpx.tracks:
     for segment in track.segments:
       for point in segment.points:
-        time_epoch = timegm(time.strptime(str(point.time), '%Y-%m-%d %H:%M:%S'))
+        time_epoch = time.mktime(time.strptime(str(point.time), '%Y-%m-%d %H:%M:%S'))
         if create_time == 0:
           create_time = time_epoch
         raw_gps_timeline = {}
@@ -293,7 +294,8 @@ def convert_video(video_file):
   """
   output_mp4 = "%s.mp4" % video_file
   call(["ffmpeg", "-i", video_file, "-c:v", "libx264", "-preset", "slower", "-crf", "18", "-r", "5", output_mp4])
-  call(["exiftool", '-make="GoPro"', '-model="GoPro Fusion"', "-overwrite_original", output_mp4])
+  if flags.exif:
+    call(["exiftool", "-make=GoPro", "-model=Fusion", "-makernotes:all=", "-overwrite_original", output_mp4])
   return output_mp4
 
 
@@ -317,6 +319,7 @@ def main():
   print "Stitched Video: %s" % flags.video
   print "Unstitched Front Video: %s" % flags.front
   print "Auto-blur: %s" % flags.blur
+  print "Update metadata: %s" % flags.exif
   print "..."
   
   if flags.key is None:
@@ -331,12 +334,11 @@ def main():
     sequence_id = publish(video_file, gpx_file)
     output = "Sequence uploaded! Sequence id: " + sequence_id
     # Clean up temp files. Comment these out if you want to see them.
-    call(["rm", video_file])
-    call(["rm", gpx_file])
-    call(["rm", "metadata.json"])
+    #call(["rm", video_file])
+    #call(["rm", gpx_file])
+    #call(["rm", "metadata.json"])
     print output
 
 
 if __name__ == '__main__':
   main()
-

@@ -5,6 +5,9 @@ to the Street View Publish API as geo-referenced "photoSequences". These
 tools and samples are not an official Google project and come with no
 guarantee of ongoing support.
 
+These tools should work on Mac and Linux, but have not been configured
+to work on Windows.
+
 Public documentation for the Street View Publish API is available here:
 https://developers.google.com/streetview/publish/
 
@@ -36,13 +39,13 @@ all frames sequentially and automatically.
 
 ## Example usage
 
-* python basic_uploader.py --video=VIDEO_0001.mp4 --blur=True --key=AbcdefgHijklmnopQrstuvWxyz
+* python basic_uploader.py --video=VIDEO_0001.mp4 --blur --key=AbcdefgHijklmnopQrstuvWxyz
 
-* python standalone_uploader.py --video=VIDEO_0001.mp4 --gpx=tracks.gpx --time=1521201600 --blur=True --key=AbcdefgHijklmnopQrstuvWxyz
+* python standalone_uploader.py --video=VIDEO_0001.mp4 --gpx=tracks.gpx --time=1521201600 --blur --key=AbcdefgHijklmnopQrstuvWxyz
 
-* python gopro_fusion_uploader.py --video=VIDEO_0001.mov --front=GPFR0001.MP4 --blur=True --key=AbcdefgHijklmnopQrstuvWxyz
+* python gopro_fusion_uploader.py --video=VIDEO_0001.mov --front=GPFR0001.MP4 --blur --key=AbcdefgHijklmnopQrstuvWxyz
 
-* python gopro_fusion_timelapse_uploader.py --folder=frames --blur=True --compress=True --key=AbcdefgHijklmnopQrstuvWxyz
+* python gopro_fusion_timelapse_uploader.py --folder=frames --blur --compress --key=AbcdefgHijklmnopQrstuvWxyz
 
 
 ## Configuring video upload tools
@@ -85,3 +88,6 @@ stitched photos.
 
 Exiftool is required for these tools, you can get it here: 
 https://www.sno.phy.queensu.ca/~phil/exiftool/install.html
+
+FFmpeg is also required, but it may already be installed on your machine.
+If you do not have it, you can get it here: https://www.ffmpeg.org/
