@@ -91,3 +91,9 @@ https://www.sno.phy.queensu.ca/~phil/exiftool/install.html
 
 FFmpeg is also required, but it may already be installed on your machine.
 If you do not have it, you can get it here: https://www.ffmpeg.org/
+
+
+## Changing authenticated user
+If you want to publish to a different account, remove the saved credentials file and authenticate again:
+
+```rm ~/.credentials/streetviewpublish_credentials.json```
