@@ -221,13 +221,38 @@ def publish_sequence(upload_url, gpx_file):
 
   raw_gps_timelines = []
   create_time = 0
+  repeated_timestamps = {}
+  last_timestamp = 0
+  # When GPMF is converted to GPX, subsecond precision is lost.  We should probably use a
+  # different method of parsing GPMF, but for now we can just estimate the subsecond interval
+  # by looking at repeated seconds.
   for track in gpx.tracks:
     for segment in track.segments:
       for point in segment.points:
-        time_epoch = time.mktime(time.strptime(str(point.time), '%Y-%m-%d %H:%M:%S'))
+        time_epoch = int(time.mktime(time.strptime(str(point.time), '%Y-%m-%d %H:%M:%S')))
+        if time_epoch in repeated_timestamps:
+          repeated_timestamps[time_epoch] = int(repeated_timestamps[time_epoch]) + 1
+        else:
+          repeated_timestamps[time_epoch] = 1
+  
+  counter = 0 
+  for track in gpx.tracks:
+    for segment in track.segments:
+      for point in segment.points:
+        time_epoch = int(time.mktime(time.strptime(str(point.time), '%Y-%m-%d %H:%M:%S')))
         if create_time == 0:
           create_time = time_epoch
         raw_gps_timeline = {}
+        if int(time_epoch) == int(last_timestamp):
+          # If a second has multiple entries, add nanoseconds
+          counter = counter + 1
+          nanos = int((float(counter) / float(repeated_timestamps[time_epoch])) * 1000000000)
+        elif int(time_epoch) < int(last_timestamp):
+          # Ignore entries where timestamps are out of order, as these may be erroneous
+          continue
+        else:
+          counter = 0
+          nanos = 0
         debug_output += '"rawGpsTimeline":{"latLngPair":{"latitude":'
         debug_output += str(point.latitude)
         debug_output += ',"longitude":'
@@ -241,13 +266,18 @@ def publish_sequence(upload_url, gpx_file):
         debug_output += str(point.elevation)
         debug_output += ','
         raw_gps_timeline["altitude"] = point.elevation
+        
+        raw_gps_timeline["gpsRecordTimestampUnixEpoch"] = {
+            "seconds": time_epoch,
+            "nanos" : nanos
+        }
         debug_output += '"gpsRecordTimestampUnixEpoch":{"seconds":"'
         debug_output += str(time_epoch)
+        debug_output += '","nanos":"'
+        debug_output += str(nanos)
         debug_output += '"}}, '
-        raw_gps_timeline["gpsRecordTimestampUnixEpoch"] = {
-            "seconds": time_epoch
-        }
         raw_gps_timelines.append(raw_gps_timeline)
+        last_timestamp = time_epoch
   publish_request["captureTimeOverride"] = {"seconds": create_time}
   publish_request["gpsSource"] = "PHOTO_SEQUENCE"
   if flags.blur:
