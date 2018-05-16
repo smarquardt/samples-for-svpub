@@ -80,10 +80,11 @@ you can just look at it on a map (you can import GPX at mymaps.google.com) to
 visualize and validate the GPS data for an interval photo capture.
 
 * gopro_gps_sync : This utility corrects for issues with the GoPro Fusion
-Studio stitching software, where GPS data is not currently (March 2018) passed
+Studio 1.1 stitching software, where GPS data was not passed
 through correctly to stitched photos.  The tool will take the GPS metadata
 from the EXIF of the original unstitched photos and inject it into the
-stitched photos. 
+stitched photos.  As of Fusion Studio 1.2 this has been fixed, so this tool
+is probably no longer necessary.
 
 
 Exiftool is required for these tools, you can get it here: 
