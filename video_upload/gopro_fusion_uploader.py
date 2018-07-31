@@ -29,7 +29,7 @@
 #
 # - google-api-python-client
 # - gpxpy
-# - pycurl
+# - requests
 #
 # The libraries can be installed by running:
 #
@@ -58,7 +58,7 @@ import httplib2
 from oauth2client import client
 from oauth2client import file as googleapis_file
 from oauth2client import tools
-import pycurl
+import requests
 
 API_NAME = "streetviewpublish"
 API_VERSION = "v1"
@@ -180,19 +180,15 @@ def upload_video(video_file, upload_url):
   http = credentials.authorize(httplib2.Http())
   file_size = get_file_size(str(video_file))
   try:
-    curl = pycurl.Curl()
-    curl.setopt(pycurl.URL, upload_url)
-    curl.setopt(pycurl.VERBOSE, 1)
-    curl.setopt(pycurl.CUSTOMREQUEST, "POST")
-    curl.setopt(pycurl.HTTPHEADER,
-                get_headers(credentials, file_size, upload_url))
-    curl.setopt(pycurl.INFILESIZE, file_size)
-    curl.setopt(pycurl.READFUNCTION, open(str(video_file), "rb").read)
-    curl.setopt(pycurl.UPLOAD, 1)
-    curl.perform()
-    curl.close()
-  except pycurl.error:
-    print "Error uploading file %s", video_file
+      headers = {"Authorization": "Bearer " + credentials.access_token,
+                 "Content-Type": "video/mp4",
+                  "X-Goog-Upload-Protocol": "raw",
+                  "X-Goog-Upload-Content-Length": str(file_size)
+                 }
+      files = {'file': ('upload_file', open(video_file, 'rb'))}
+      requests.post(upload_url, headers=headers, files=files)
+  except Exception as error_message:
+      print(error_message)
 
 
 def publish_sequence(upload_url, gpx_file):
