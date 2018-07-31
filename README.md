@@ -12,7 +12,10 @@ Public documentation for the Street View Publish API is available here:
 https://developers.google.com/streetview/publish/
 
 Note that access to the photoSequence methods in the Street View Publish API
-is currently (March 2018) by invitation only.
+is currently (July 2018) by invitation only.
+
+Because it is difficult to install pyCurl on some machines, there is also a
+branch that is reconfigured to use Requests instead of pyCurl.
 
 ## Video upload tools
 
