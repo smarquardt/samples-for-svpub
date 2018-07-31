@@ -173,22 +173,25 @@ def upload_video(video_file, upload_url):
   """Uploads a the video bytes to SV servers (step 2/3).
 
   Args:
-    video_file: Full path of the video to upload.
+    photo_file: Full path of the photo to upload.
     upload_url: The upload URL returned by step 1.
   Returns:
     None.
   """
+  parsed_url = urlparse.urlparse(upload_url)
+  host = parsed_url[1]
   credentials = get_credentials()
   credentials.authorize(httplib2.Http())
   file_size = get_file_size(str(video_file))
   try:
-      headers = {"Authorization": "Bearer " + credentials.access_token,
+      h = {"Authorization": "Bearer " + credentials.access_token,
                  "Content-Type": "video/mp4",
                   "X-Goog-Upload-Protocol": "raw",
-                  "X-Goog-Upload-Content-Length": str(file_size)
+                  "X-Goog-Upload-Content-Length": str(file_size),
+                  "Host": host
                  }
-      files = {'file': ('upload_file', open(video_file, 'rb'))}
-      requests.post(upload_url, headers=headers, files=files)
+      with open(video_file,"rb") as upload_target:
+          r = requests.post(upload_url,headers=h,data=upload_target)
   except Exception as error_message:
       print(error_message)
 
