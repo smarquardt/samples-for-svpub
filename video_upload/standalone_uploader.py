@@ -186,22 +186,15 @@ def upload_video(video_file, upload_url):
   credentials.authorize(httplib2.Http())
   file_size = get_file_size(str(video_file))
   try:
-    curl = pycurl.Curl()
-    curl.setopt(pycurl.URL, upload_url)
-    curl.setopt(pycurl.VERBOSE, 1)
-    curl.setopt(pycurl.CUSTOMREQUEST, "POST")
-    curl.setopt(pycurl.HTTPHEADER,
-                get_headers(credentials, file_size, upload_url))
-    curl.setopt(pycurl.INFILESIZE, file_size)
-    curl.setopt(pycurl.READFUNCTION, open(str(video_file), "rb").read)
-    curl.setopt(pycurl.UPLOAD, 1)
-    curl.perform()
-    response_code = curl.getinfo(pycurl.RESPONSE_CODE)
-    curl.close()
-  except pycurl.error:
-    print("Error uploading file %s", video_file)
-  if response_code is not 200:
-    print("Error uploading file %s", video_file)
+      headers = {"Authorization": "Bearer " + credentials.access_token,
+                 "Content-Type": "video/mp4",
+                  "X-Goog-Upload-Protocol": "raw",
+                  "X-Goog-Upload-Content-Length": str(file_size)
+                 }
+      files = {'file': ('upload_file', open(video_file, 'rb'))}
+      requests.post(upload_url, headers=headers, files=files)
+  except Exception as error_message:
+      print(error_message)
 
 
 def publish_sequence(upload_url, gpx_file, create_time):
@@ -289,5 +282,3 @@ def main():
 
 if __name__ == '__main__':
   main()
-
-
