@@ -48,7 +48,6 @@
 # This script requires the following libraries:
 #
 # - google-api-python-client
-# - pycurl
 #
 # The libraries can be installed by running:
 #
@@ -75,7 +74,7 @@ from oauth2client import client
 from oauth2client import tools
 from oauth2client.file import Storage
 import subprocess
-import pycurl
+import requests
 
 
 API_NAME = "streetviewpublish"
@@ -93,7 +92,6 @@ parser.add_argument("--blur", default=False, action='store_true', help="Enable a
 parser.add_argument("--compress", default=False, action='store_true', help="Enable compression")
 parser.add_argument("--compressmore", default=False, action='store_true', help="Enable higher level of compression")
 parser.add_argument("--compressfast", default=False, action='store_true', help="Enable faster compression")
-parser.add_argument("--exif", default=False, action='store_true', help="Write make/model to metadata")
 parser.add_argument("--key", help="Your developer key")
 flags = parser.parse_args()
 
@@ -126,7 +124,7 @@ def get_credentials():
   store = Storage(credential_path)
   credentials = store.get()
   if not credentials or credentials.invalid:
-    flow = client.flow_from_clientsecrets(CLIENT_SECRETS_FILE, SCOPES)
+    flow = client.flow_from_clientsecrets(CLIENT_SECRETS_FILE, _SCOPES)
     flow.redirect_uri = REDIRECT_URI
     flow.user_agent = APPLICATION_NAME
     if flags:
@@ -221,23 +219,15 @@ def upload_video(video_file, upload_url):
   credentials.authorize(httplib2.Http())
   file_size = get_file_size(str(video_file))
   try:
-    curl = pycurl.Curl()
-    curl.setopt(pycurl.URL, upload_url)
-    curl.setopt(pycurl.VERBOSE, 1)
-    curl.setopt(pycurl.CUSTOMREQUEST, "POST")
-    curl.setopt(pycurl.HTTPHEADER,
-                get_headers(credentials, file_size, upload_url))
-    curl.setopt(pycurl.INFILESIZE, file_size)
-    curl.setopt(pycurl.READFUNCTION, open(str(video_file), "rb").read)
-    curl.setopt(pycurl.NOPROGRESS, False)
-    curl.setopt(pycurl.XFERINFOFUNCTION, xfer_progress)
-    curl.setopt(pycurl.UPLOAD, 1)
-
-    curl.perform()
-    response_code = curl.getinfo(pycurl.RESPONSE_CODE)
-    curl.close()
-  except pycurl.error:
-    print("Error uploading file %s" % video_file)
+      headers = {"Authorization": "Bearer " + credentials.access_token,
+                 "Content-Type": "video/mp4",
+                  "X-Goog-Upload-Protocol": "raw",
+                  "X-Goog-Upload-Content-Length": str(file_size)
+                 }
+      files = {'file': ('upload_file', open(video_file, 'rb'))}
+      requests.post(upload_url, headers=headers, files=files)
+  except Exception as error_message:
+      print(error_message)
 
 
 def publish_video(upload_url, geodata, create_time):
@@ -331,8 +321,7 @@ def convert_video(directory):
     subprocess.call(["ffmpeg", "-r", "1", "-i", file_pattern, "-c:v", "libx264", "-preset", "slower", "-crf", "18", "-r", "1", "-y", output_mp4])
   else:
     subprocess.call(["ffmpeg", "-framerate", "1", "-i", file_pattern, "-codec", "copy", "-y", output_mp4])
-  if flags.exif:
-    subprocess.call(["exiftool", '-make="GoPro"', '-model="GoPro Fusion"', "-overwrite_original", output_mp4])
+  subprocess.call(["exiftool", '-make="GoPro"', '-model="GoPro Fusion"', "-overwrite_original", output_mp4])
   return output_mp4
 
 def main():
